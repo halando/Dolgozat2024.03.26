@@ -1,0 +1,232 @@
+[Route("api/[controller]")]
+[ApiController]
+public class KolcsonzesekController : ControllerBase
+{
+ private readonly ApplicationDbContext _context;
+
+ public KolcsonzesekController(ApplicationDbContext context)
+ {
+ _context = context;
+ }
+
+ [HttpGet]
+ public async Task<ActionResult<IEnumerable<Kolcsonzesek>>> GetKolcsonzesek()
+ {
+ return await _context.Kolcsonzesek.ToListAsync();
+ }
+
+ [HttpGet("{id}")]
+ public async Task<ActionResult<Kolcsonzesek>> GetKolcsonzes(int id)
+ {
+ var kolcsonzes = await _context.Kolcsonzesek.FindAsync(id);
+
+ if (kolcsonzes == null)
+ {
+ return NotFound();
+ }
+
+ return kolcsonzes;
+ }
+
+ [HttpPost]
+ public async Task<ActionResult<Kolcsonzesek>> PostKolcsonzes(Kolcsonzesek kolcsonzes)
+ {
+ _context.Kolcsonzesek.Add(kolcsonzes);
+ await _context.SaveChangesAsync();
+
+ return CreatedAtAction("GetKolcsonzes", new { id = kolcsonzes.Id }, kolcsonzes);
+ }
+
+ [HttpPut("{id}")]
+ public async Task<IActionResult> PutKolcsonzes(int id, Kolcsonzesek kolcsonzes)
+ {
+ if (id != kolcsonzes.Id)
+ {
+ return BadRequest();
+ }
+
+ _context.Entry(kolcsonzes).State = EntityState.Modified;
+
+ try
+ {
+ await _context.SaveChangesAsync();
+ }
+ catch (DbUpdateConcurrencyException)
+ {
+ if (!KolcsonzesExists(id))
+ {
+ return NotFound();
+ }
+ else
+ {
+ throw;
+ }
+ }
+
+ return NoContent();
+ }
+
+ [HttpDelete("{id}")]
+ public async Task<IActionResult> DeleteKolcsonzes(int id)
+ {
+ var kolcsonzes = await _context.Kolcsonzesek.FindAsync(id);
+ if (kolcsonzes == null)
+ {
+ return NotFound();
+ }
+
+ _context.Kolcsonzesek.Remove(kolcsonzes);
+ await _context.SaveChangesAsync();
+
+ return NoContent();
+ }
+
+ private bool KolcsonzesExists(int id)
+ {
+ return _context.Kolcsonzesek.Any(e => e.Id == id);
+ }
+}
+
+public class Kolcsonzok
+{
+ public int Id { get; set; }
+ public string Nev { get; set; }
+ public DateTime SzulIdo { get; set; }
+ public List<Kolcsonzesek> Kolcsonzesek { get; set; }
+}
+
+public class Kolcsonzesek
+{
+ public int Id { get; set; }
+ public int KolcsonzokId { get; set; }
+ public string Iro { get; set; }
+ public string Mufaj { get; set; }
+ public string Cim { get; set; }
+}
+
+
+public void ConfigureServices(IServiceCollection services)
+{
+ services.AddDbContext<ApplicationDbContext>(options =>
+ options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
+
+ services.AddControllers();
+
+ services.AddCors(options =>
+ {
+ options.AddPolicy("AllowAllOrigins",
+ builder =>
+ {
+ builder.AllowAnyOrigin()
+ .AllowAnyHeader()
+ .AllowAnyMethod();
+ });
+ });
+}
+
+public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+{
+ if (env.IsDevelopment())
+ {
+ app.UseDeveloperExceptionPage();
+ }
+
+ app.UseRouting();
+
+ app.UseCors("AllowAllOrigins");
+
+ app.UseAuthorization();
+
+ app.UseEndpoints(endpoints =>
+ {
+ endpoints.MapControllers();
+ });
+}
+
+using System;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Text;
+using System.Data;
+using System.Data.SqlClient;
+using CsvHelper;
+
+namespace BookLibraryImporter
+{
+ class Program
+ {
+ static void Main(string[] args)
+ {
+ if (args.Length == 0)
+ {
+ Console.WriteLine("Helyes paraméterezés: BookLibraryImporter <Kolcsonzok_csv> <Kolcsonzesek_csv>");
+ return;
+ }
+
+ string kolcsonzokCsvPath = args[0];
+ string kolcsonzesekCsvPath = args[1];
+
+ if (!File.Exists(kolcsonzokCsvPath) || !File.Exists(kolcsonzesekCsvPath))
+ {
+ Console.WriteLine("A megadott helyen nem található egyik CSV állomány sem.");
+ return;
+ }
+
+ ImportData(kolcsonzokCsvPath, kolcsonzesekCsvPath);
+ }
+
+ static void ImportData(string kolcsonzokCsvPath, string kolcsonzesekCsvPath)
+ {
+ using (var reader = new StreamReader(kolcsonzokCsvPath, Encoding.UTF8))
+ using (var csv = new CsvReader(reader))
+ {
+ csv.Configuration.Delimiter = ";";
+ csv.Configuration.HasHeaderRecord = true;
+
+ var kolcsonzok = csv.GetRecords<Kolcsonzo>().ToList();
+
+ foreach (var kolcsonzo in kolcsonzok)
+ {
+ Console.WriteLine($"Kolcsonzo: {kolcsonzo.Nev}, SzulDatum: {kolcsonzo.SzulDatum}");
+
+ // Adatbázisba mentés helye
+ }
+
+ Console.WriteLine($"Sikeresen importált sorok száma a Kolcsonzok.csv állományból: {kolcsonzok.Count}");
+ }
+
+ using (var reader = new StreamReader(kolcsonzesekCsvPath, Encoding.UTF8))
+ using (var csv = new CsvReader(reader))
+ {
+ csv.Configuration.Delimiter = ";";
+ csv.Configuration.HasHeaderRecord = true;
+
+ var kolcsonzesek = csv.GetRecords<Kolcsonzes>().ToList();
+
+ foreach (var kolcsonzes in kolcsonzesek)
+ {
+ Console.WriteLine($"Kolcsonzes: {kolcsonzes.KolcsonzoId}, Iro: {kolcsonzes.Iro}, Mufaj: {kolcsonzes.Mufaj}, Cim: {kolcsonzes.Cim}");
+
+ // Adatbázisba mentés helye
+ }
+
+ Console.WriteLine($"Sikeresen importált sorok száma a Kolcsonzesek.csv állományból: {kolcsonzesek.Count}");
+ }
+ }
+ }
+
+ public class Kolcsonzo
+ {
+ public string Nev { get; set; }
+ public string SzulDatum { get; set; }
+ }
+
+ public class Kolcsonzes
+ {
+ public int KolcsonzoId { get; set; }
+ public string Iro { get; set; }
+ public string Mufaj { get; set; }
+ public string Cim { get; set; }
+ }
+}

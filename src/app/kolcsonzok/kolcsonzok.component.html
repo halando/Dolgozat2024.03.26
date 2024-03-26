@@ -1,0 +1,11 @@
+<div>
+    <h2>Kölcsönzők</h2>
+    <ul>
+    <li *ngFor="let kolcsonzo of kolcsonzok">
+    <span>ID: {{ customers.id }},</span>
+    <span>Név: {{ customers.nev }},</span>
+    <span>Születési dátum: {{ customers.szulIdo }}</span>
+    <button (click)="showRentals(customers)" class="btn btn-primary">Kölcsönzések</button>
+    </li>
+    </ul>
+   </div>
